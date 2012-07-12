@@ -6,6 +6,9 @@ from twisted.internet import defer,  reactor
 from twisted.python import failure, log
 from twisted.web import server
 from twisted.names.srvconnect import SRVConnector
+from sleekxmpp.xmlstream import StanzaBase
+from xml.etree import cElementTree as ET
+from apns import APNs, Payload
 
 try:
     from twisted.words.xish import domish, xmlstream
@@ -18,10 +21,10 @@ import traceback
 import os
 from punjab import jabber
 from punjab.xmpp import ns
-
+from punjab import awskey
 import time
 import error
-
+import boto
 try:
     from twisted.internet import ssl
 except ImportError:
@@ -31,8 +34,10 @@ if ssl and not ssl.supported:
 if not ssl:
     log.msg("SSL ERROR: You do not have ssl support this may cause problems with tls client connections.")
 
+apns = APNs(use_sandbox=True, cert_file='/etc/gtpush/Certs/apns-dev-cert.pem', key_file='/etc/gtpush/Certs/apns-dev-key.pem')
 
-
+conn = boto.connect_sdb(aws_access_key_id=awskey.KEY,aws_secret_access_key=awskey.SECRET)
+dom = conn.get_domain('GTPushTokens')
 class XMPPClientConnector(SRVConnector):
     """
     A jabber connection to find srv records for xmpp client connections.
@@ -237,6 +242,26 @@ class Session(jabber.JabberClientFactory, server.Session):
                 log.msg("SID: %s => RECV: %r" % (self.sid, buf,))
             except:
                 log.err()
+        if self.authid and buf != ' ':
+            recv = buf
+            if type(buf)==type(''):
+                recv = unicode(buf,'utf-8')
+            try:
+                xml = ET.fromstring(buf)
+                stanza = StanzaBase(xml=xml)
+                if stanza['type'] == 'chat':
+                    body = xml.find('body')
+                    if body != None:
+                        msg = body.text
+                        log.msg("from: %s to :%s say: %s" %(stanza['from'],stanza['to'],msg))
+                        token_item = dom.get_item(stanza['to'])
+                        token = token_item['token']
+                        payload = Payload(alert=msg, sound="default", badge=1)
+                        apns.gateway_server.send_notification(token, payload)
+            except:
+                #log.err()
+                pass
+
         if self.use_raw and self.authid:
             if type(buf) == type(''):
                 buf = unicode(buf, 'utf-8')

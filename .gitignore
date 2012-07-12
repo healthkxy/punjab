@@ -4,3 +4,5 @@ twistd.log
 twistd.pid
 dropin.cache
 *.~*
+build/
+punjab/awskey.py
