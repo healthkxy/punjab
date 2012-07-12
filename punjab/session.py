@@ -34,7 +34,7 @@ if ssl and not ssl.supported:
 if not ssl:
     log.msg("SSL ERROR: You do not have ssl support this may cause problems with tls client connections.")
 
-apns = APNs(use_sandbox=True, cert_file='/etc/gtpush/Certs/apns-dev-cert.pem', key_file='/etc/gtpush/Certs/apns-dev-key.pem')
+apns = APNs(use_sandbox=False, cert_file='/etc/gtpush/Certs/apns-dis-cert.pem', key_file='/etc/gtpush/Certs/apns-dis-key.pem')
 
 conn = boto.connect_sdb(aws_access_key_id=awskey.KEY,aws_secret_access_key=awskey.SECRET)
 dom = conn.get_domain('GTPushTokens')
@@ -237,11 +237,11 @@ class Session(jabber.JabberClientFactory, server.Session):
 
     def rawDataIn(self, buf):
         """ Log incoming data on the xmlstream """
-        if self.pint.v:
-            try:
-                log.msg("SID: %s => RECV: %r" % (self.sid, buf,))
-            except:
-                log.err()
+        #if self.pint.v:
+            #try:
+                #log.msg("SID: %s => RECV: %r" % (self.sid, buf,))
+            #except:
+            #    log.err()
         if self.authid and buf != ' ':
             recv = buf
             if type(buf)==type(''):
@@ -252,8 +252,12 @@ class Session(jabber.JabberClientFactory, server.Session):
                 if stanza['type'] == 'chat':
                     body = xml.find('body')
                     if body != None:
-                        msg = body.text
-                        log.msg("from: %s to :%s say: %s" %(stanza['from'],stanza['to'],msg))
+                        msg_from = "%s" % stanza['from']
+                        msgfrom = msg_from.split('@')
+                        msg_from = msgfrom[0]
+                        msg = "%s : %s" % (msg_from ,body.text)
+                        msg = msg[:140]
+                        #log.msg("from: %s to :%s say: %s" %(stanza['from'],stanza['to'],msg))
                         token_item = dom.get_item(stanza['to'])
                         token = token_item['token']
                         payload = Payload(alert=msg, sound="default", badge=1)
